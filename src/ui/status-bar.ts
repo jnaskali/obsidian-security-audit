@@ -81,7 +81,7 @@ export function openStatusMenu(plugin: SecurityAudit) {
 	// Menu item: Show plugin manifest
 	const manifestItem = document.createElement('div');
 	manifestItem.className = 'security-audit-status-menu-item';
-	manifestItem.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" style="fill: white; margin-right: 8px; vertical-align: middle;"><path d="M3 13h2v-2H3v2zm0-4h2V7H3v2zm0-4h2V3H3v2zm4 0h14V3H7v2zm0 4h14V7H7v2zm0 4h14v-2H7v2z"/></svg>Show installed plugins`;
+	manifestItem.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" style="fill: white; margin-right: 8px; vertical-align: middle;"><path d="M3 13h2v-2H3v2zm0-4h2V7H3v2zm0-4h2V3H3v2zm4 0h14V3H7v2zm0 4h14V7H7v2zm0 4h14v-2H7v2z"/></svg>List installed plugins`;
 	manifestItem.tabIndex = 0;
 	manifestItem.addEventListener('mouseenter', () => manifestItem.style.background = 'var(--background-modifier-hover)');
 	manifestItem.addEventListener('mouseleave', () => manifestItem.style.background = '');
@@ -94,7 +94,7 @@ export function openStatusMenu(plugin: SecurityAudit) {
 	// Menu item: Open latest audit
 	const latestAuditItem = document.createElement('div');
 	latestAuditItem.className = 'security-audit-status-menu-item';
-	latestAuditItem.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" style="fill: white; margin-right: 8px; vertical-align: middle;"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/></svg>Open latest audit`;
+	latestAuditItem.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" style="fill: white; margin-right: 8px; vertical-align: middle;"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/></svg>Open audit report`;
 	latestAuditItem.tabIndex = 0;
 	latestAuditItem.addEventListener('mouseenter', () => latestAuditItem.style.background = 'var(--background-modifier-hover)');
 	latestAuditItem.addEventListener('mouseleave', () => latestAuditItem.style.background = '');

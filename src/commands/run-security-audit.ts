@@ -10,6 +10,7 @@ import { promisify } from 'util';
 import * as https from 'https';
 import { IncomingMessage } from 'http';
 import SecurityAudit from '../main';
+import { downloadManifestWithCache, updateRepoDetails, downloadPackageFile } from '../utils/download';
 
 const execAsync = promisify(exec);
 
@@ -40,8 +41,7 @@ export async function runSecurityAudit(plugin: SecurityAudit) {
 
 		// Get cache dir
 		const cacheDir = plugin.getCacheDir();
-		logDebug(`Cache directory: ${cacheDir}`);
-		logDebug('Ensuring cache directory exists');
+		logDebug(`Init cache directory: ${cacheDir}`);
 		await fs.mkdir(cacheDir, { recursive: true });
 
 		const manifestPath = path.join(cacheDir, 'installed-manifest.json');
@@ -66,13 +66,13 @@ export async function runSecurityAudit(plugin: SecurityAudit) {
 
 			// Download full manifest with cache checking
 			const fullManifest: PluginManifestEntry[] = await downloadManifestWithCache(cacheDir, plugin.settings.lastAuditTimestamp, logDebug);
-			logDebug(`Downloaded manifest with ${fullManifest.length} entries`);
+			logDebug(`Downloaded full plugin manifest with ${fullManifest.length} entries`);
 
 			modal.updateProgress(10, 'Filtering manifest...');
 
 			// Filter to installed plugins
 			installedManifest = fullManifest.filter(p => installedPlugins.includes(p.id));
-			logDebug(`Filtered to ${installedManifest.length} installed plugins`);
+			logDebug(`Filtered manifest to ${installedManifest.length} installed plugins`);
 
 			// Add plugins not in global manifest
 			const manifestIds = new Set(fullManifest.map(p => p.id));
@@ -100,10 +100,11 @@ export async function runSecurityAudit(plugin: SecurityAudit) {
 					});
 				}
 			}
-			logDebug(`Added ${missingIds.length} plugins without online repository`);
+			logDebug(`Added ${missingIds.length} local plugins without online repository`);
 		}
 
 		const tempDirs = new Map<string, string>();
+		const repoErrors = new Map<string, string>();
 
 		let failedDownloadCount = 0;
 
@@ -112,68 +113,61 @@ export async function runSecurityAudit(plugin: SecurityAudit) {
 		const totalPlugins = installedManifest.length;
 		let downloaded = 0;
 
-		// Download files for all first
+		// Process package files for all plugins
 		for (const p of installedManifest) {
 			if (!p.repo) {
-				// Skip plugins without repository
+				// Skip plugins without known repository
 				continue;
 			}
 
-			logDebug(`Downloading files for ${p.name} from ${p.repo}`);
+			logDebug(`Processing package files for ${p.name} in ${p.repo}`);
+
+			const tempDir = path.join(cacheDir, "packages", p.id);
+			await fs.mkdir(tempDir, { recursive: true });
+
+			let branch: string;
+			let repoWasUpdated: boolean;
+			try {
+				const result = await updateRepoDetails(p.repo, p, logDebug, plugin.settings.githubAccessToken);
+				branch = result.branch;
+				repoWasUpdated = result.repoWasUpdated;
+				p.defaultBranch = branch;
+			} catch (err) {
+				logDebug(`[${p.id}] Repository details failed: ${err.message}, proceeding with cache if available`);
+				repoErrors.set(p.id, err.message);
+				branch = 'main'; // fallback
+				repoWasUpdated = false; // assume not updated to use cache
+			}
 
 			try {
-				let branch = p.defaultBranch;
-				if (!branch) {
-					branch = await getDefaultBranch(p.repo, p);
-					p.defaultBranch = branch;
-				}
-				const tempDir = path.join(cacheDir, "packages", p.id);
-				const packageJsonPath = path.join(tempDir, 'package.json');
-				const packageLockPath = path.join(tempDir, 'package-lock.json');
-
-				await fs.mkdir(tempDir, { recursive: true });
-
-				const packageJsonUrl = `https://raw.githubusercontent.com/${p.repo}/${branch}/package.json`;
-				const packageJsonRelativePath = `packages/${p.id}/package.json`;
-				logDebug(`Downloading package.json for ${p.name} from ${packageJsonUrl}`);
-				const packageJsonResult = await downloadFileWithMetadata(packageJsonUrl, packageJsonPath, cacheDir, packageJsonRelativePath, logDebug);
-
-				const packageLockUrl = `https://raw.githubusercontent.com/${p.repo}/${branch}/package-lock.json`;
-				const packageLockRelativePath = `packages/${p.id}/package-lock.json`;
-				let packageLockResult;
-				try {
-					logDebug(`Attempting to download package-lock.json for ${p.name} from ${packageLockUrl}`);
-					packageLockResult = await downloadFileWithMetadata(packageLockUrl, packageLockPath, cacheDir, packageLockRelativePath, logDebug);
-				} catch (err) {
-					logDebug(`No package-lock.json for ${p.name}`);
+				// Download package.json and package-lock.json with cache checking
+				const packageJsonResult = await downloadPackageFile(p, branch, repoWasUpdated, cacheDir, 'package.json', logDebug);
+				if (!packageJsonResult.downloaded && !packageJsonResult.cached) {
+					throw new Error(`[${p.id}] Missing package.json`);
 				}
 
-				// Log cache decisions
-				const lastAuditDate = plugin.settings.lastAuditTimestamp ? new Date(plugin.settings.lastAuditTimestamp).toISOString() : 'never';
-				if (packageJsonResult.lastModified) {
-					if (packageJsonResult.downloaded) {
-						logDebug(`[${p.name}] new version released on ${packageJsonResult.lastModified}, downloading...`);
-					} else {
-						logDebug(`[${p.name}] last updated ${packageJsonResult.lastModified}, using cached files`);
+				const packageLockResult = await downloadPackageFile(p, branch, repoWasUpdated, cacheDir, 'package-lock.json', logDebug);
+				if (!packageLockResult.downloaded && !packageLockResult.cached) {
+					try {
+						await execAsync('npm i --package-lock-only --legacy-peer-deps', { cwd: tempDir });
+						logDebug(`[${p.id}] Generated package-lock.json`);
+					} catch (genErr) {
+						logDebug(`[${p.id}] Failed to generate package-lock.json: ${genErr.message}`);
 					}
 				}
 
 				tempDirs.set(p.id, tempDir);
-				logDebug(`Processed files for ${p.name} successfully`);
+				logDebug(`[${p.id}] Package files ok.`);
 			} catch (err) {
 				failedDownloadCount++;
-				logDebug(`Failed to download for ${p.name}: ${err.message}`);
+				logDebug(`[${p.id}] Failed to process package files: ${err.message}`);
 			}
 
 			downloaded++;
 			modal.updateProgress(15 + (downloaded / totalPlugins) * 40, `Downloaded ${downloaded}/${totalPlugins} plugin files`);
 		}
 
-		// Update manifest with timestamps and save
-		const now = Date.now();
-		for (const p of installedManifest) {
-			p.lastUpdated = now;
-		}
+		// Save manifest (lastUpdated timestamps already set during download)
 		await fs.writeFile(manifestPath, JSON.stringify(installedManifest, null, 2));
 		logDebug(`Updated and saved manifest to ${manifestPath}`);
 
@@ -203,7 +197,8 @@ export async function runSecurityAudit(plugin: SecurityAudit) {
 					continue;
 				}
 				failedDownloadCount++;
-				logContent += `=== ${p.name} (${p.id}) ===\nError: Files not downloaded\n\n`;
+				const errorMsg = repoErrors.get(p.id) || "Error: Files not downloaded";
+				logContent += `=== ${p.name} (${p.id}) ===\n${errorMsg}\n\n`;
 				logDebug(`Skipped auditing ${p.name}: files not downloaded`);
 				audited++;
 				continue;
@@ -220,7 +215,11 @@ export async function runSecurityAudit(plugin: SecurityAudit) {
 						let maxSeverity = 'none';
 						try {
 							const auditResult = JSON.parse(output);
-							if (auditResult.vulnerabilities) {
+							// Check if npm audit returned an error (e.g., ENOLOCK)
+							if (auditResult.error) {
+								incomplete = true;
+								maxSeverity = 'none';
+							} else if (auditResult.vulnerabilities) {
 								const result = getMaxSeverity(auditResult.vulnerabilities);
 								maxSeverity = result.maxSeverity;
 							}
@@ -234,14 +233,22 @@ export async function runSecurityAudit(plugin: SecurityAudit) {
 				});
 
 				const {output: stdout, maxSeverity, incomplete} = result;
-				if (incomplete) auditIncompleteCount++;
-
-				if (maxSeverity === 'critical') criticalCount++;
-				else if (maxSeverity === 'high') highCount++;
-				else if (maxSeverity === 'moderate') moderateCount++;
-				else if (maxSeverity === 'low') lowCount++;
-				else if (maxSeverity === 'info') infoCount++;
-				else noIssuesCount++;
+				
+				if (incomplete) {
+					auditIncompleteCount++;
+				} else if (maxSeverity === 'critical') {
+					criticalCount++;
+				} else if (maxSeverity === 'high') {
+					highCount++;
+				} else if (maxSeverity === 'moderate') {
+					moderateCount++;
+				} else if (maxSeverity === 'low') {
+					lowCount++;
+				} else if (maxSeverity === 'info') {
+					infoCount++;
+				} else {
+					noIssuesCount++;
+				}
 
 				logContent += `=== ${p.name} (${p.id}) ===\n${stdout}\n\n`;
 				logDebug(`Audited ${p.name} successfully`);
@@ -278,175 +285,3 @@ export async function runSecurityAudit(plugin: SecurityAudit) {
 	}
 }
 
-async function getDefaultBranch(repo: string, plugin?: PluginManifestEntry): Promise<string> {
-	return new Promise((resolve, reject) => {
-		const req = https.get(`https://api.github.com/repos/${repo}`, { headers: { 'User-Agent': 'obsidian-security-audit' } }, (res) => {
-			if (res.statusCode === 404) {
-				reject(new Error('Repository not found'));
-				return;
-			}
-			let data = '';
-			res.on('data', chunk => data += chunk);
-			res.on('end', () => {
-				try {
-					const repoData = JSON.parse(data);
-					if (plugin) {
-						plugin.supportLink = `https://github.com/${repo}/issues`;
-					}
-					resolve(repoData.default_branch);
-				} catch (err) {
-					reject(err);
-				}
-			});
-		});
-		req.on('error', reject);
-	});
-}
-
-async function loadCacheMetadata(cacheDir: string, logDebug: (msg: string) => void): Promise<CacheMetadata> {
-	const metadataPath = path.join(cacheDir, 'cache-metadata.json');
-	logDebug('Loading cache metadata');
-	try {
-		const content = await fs.readFile(metadataPath, 'utf-8');
-		return JSON.parse(content);
-	} catch (err) {
-		return {};
-	}
-}
-
-async function saveCacheMetadata(cacheDir: string, metadata: CacheMetadata, logDebug: (msg: string) => void): Promise<void> {
-	const metadataPath = path.join(cacheDir, 'cache-metadata.json');
-	logDebug('Saving cache metadata');
-	await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
-}
-
-async function checkLastModified(url: string): Promise<{ lastModified?: string; size?: number }> {
-	return new Promise((resolve, reject) => {
-		const req = https.request(url, { method: 'HEAD' }, (res) => {
-			if (res.statusCode === 404) {
-				resolve({});
-				return;
-			}
-			const lastModified = res.headers['last-modified'];
-			const contentLength = res.headers['content-length'];
-			resolve({
-				lastModified: typeof lastModified === 'string' ? lastModified : undefined,
-				size: contentLength ? parseInt(contentLength, 10) : undefined
-			});
-		});
-		req.on('error', reject);
-		req.end();
-	});
-}
-
-async function downloadFileWithMetadata(url: string, dest: string, cacheDir: string, relativePath: string, logDebug: (msg: string) => void): Promise<{ downloaded: boolean; lastModified?: string; size?: number }> {
-	const metadata = await loadCacheMetadata(cacheDir, logDebug);
-	const cached = metadata[relativePath];
-
-	// Check if we need to download
-	const remoteInfo = await checkLastModified(url);
-	if (!remoteInfo.lastModified) {
-		// File not found, don't download
-		return { downloaded: false };
-	}
-
-	const needsDownload = !cached?.lastModified || cached.lastModified !== remoteInfo.lastModified;
-
-	if (!needsDownload) {
-		return { downloaded: false, lastModified: cached.lastModified, size: cached.size };
-	}
-
-	// Download the file
-	await downloadFile(url, dest);
-
-	// Update metadata
-	metadata[relativePath] = {
-		lastModified: remoteInfo.lastModified,
-		size: remoteInfo.size
-	};
-	await saveCacheMetadata(cacheDir, metadata, logDebug);
-
-	return { downloaded: true, lastModified: remoteInfo.lastModified, size: remoteInfo.size };
-}
-
-async function downloadFile(url: string, dest: string): Promise<void> {
-	return new Promise((resolve, reject) => {
-		const file = fsSync.createWriteStream(dest);
-		const req = https.get(url, (res) => {
-			if (res.statusCode === 404) {
-				reject(new Error('File not found'));
-				return;
-			}
-			res.pipe(file);
-			file.on('finish', () => {
-				file.close();
-				resolve();
-			});
-		});
-		req.on('error', (err) => {
-			fsSync.unlink(dest, () => {}); // Delete the file async
-			reject(err);
-		});
-	});
-}
-
-async function downloadManifestWithCache(cacheDir: string, lastAuditTimestamp: number | undefined, logDebug: (msg: string) => void): Promise<PluginManifestEntry[]> {
-	const manifestUrl = 'https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json';
-	const manifestPath = path.join(cacheDir, 'community-plugins.json');
-	const relativePath = 'community-plugins.json';
-
-	const result = await downloadFileWithMetadata(manifestUrl, manifestPath, cacheDir, relativePath, logDebug);
-
-	if (!result.lastModified) {
-		throw new Error('Manifest not found');
-	}
-
-	// Check if we need to download based on timestamp
-	const needsDownload = !lastAuditTimestamp || !result.lastModified || new Date(result.lastModified).getTime() > lastAuditTimestamp;
-
-	if (!needsDownload) {
-		logDebug(`Manifest last modified ${result.lastModified}, audit last run ${new Date(lastAuditTimestamp).toISOString()}, using cached manifest`);
-		const cachedContent = await fs.readFile(manifestPath, 'utf-8');
-		return JSON.parse(cachedContent);
-	}
-
-	logDebug(`Manifest last modified ${result.lastModified}, audit last run ${lastAuditTimestamp ? new Date(lastAuditTimestamp).toISOString() : 'never'}, downloading updated manifest`);
-	logDebug(`Downloading manifest from ${manifestUrl}`);
-
-	// Download fresh
-	return new Promise((resolve, reject) => {
-		const req = https.get(manifestUrl, (res: IncomingMessage) => {
-			let data = '';
-			res.on('data', (chunk: Buffer) => data += chunk);
-			res.on('end', () => {
-				try {
-					const manifest = JSON.parse(data);
-					logDebug(`Parsed manifest with ${manifest.length} plugins`);
-					// Save to cache
-					fs.writeFile(manifestPath, data);
-					resolve(manifest);
-				} catch (err) {
-					reject(err);
-				}
-			});
-		});
-		req.on('error', reject);
-	});
-}
-
-async function downloadManifest(): Promise<PluginManifestEntry[]> {
-	return new Promise((resolve, reject) => {
-		const req = https.get('https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json', (res: IncomingMessage) => {
-			let data = '';
-			res.on('data', (chunk: Buffer) => data += chunk);
-			res.on('end', () => {
-				try {
-					resolve(JSON.parse(data));
-				} catch (err) {
-					reject(err);
-				}
-			});
-		});
-		req.on('error', reject);
-	});
-}

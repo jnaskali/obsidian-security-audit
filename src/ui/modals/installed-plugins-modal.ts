@@ -49,16 +49,17 @@ export class InstalledPluginsModal extends Modal {
 					const table = contentEl.createEl('table', { cls: 'modal-table' });
 					const thead = table.createEl('thead');
 					const headerRow = thead.createEl('tr');
-					headerRow.createEl('th', {text: 'Plugin name (click for support)', cls: 'text-left'});
+					headerRow.createEl('th', {text: 'Plugin name (click for repo)', cls: 'text-left'});
 					headerRow.createEl('th', {text: 'Issues', cls: 'text-left'});
+					headerRow.createEl('th', {text: 'Last Updated', cls: 'text-left'});
 
 					const tbody = table.createEl('tbody');
 					plugins.forEach((p: PluginManifestEntry) => {
 						const row = tbody.createEl('tr');
 						const nameCell = row.createEl('td');
 						nameCell.classList.add('text-left');
-						if (p.supportLink) {
-							const link = nameCell.createEl('a', {text: p.name, href: p.supportLink});
+						if (p.repo) {
+							const link = nameCell.createEl('a', {text: p.name, href: `https://github.com/${p.repo}`});
 							link.target = '_blank';
 						} else {
 							nameCell.textContent = p.name;
@@ -78,6 +79,25 @@ export class InstalledPluginsModal extends Modal {
 						};
 						if (colorMap[issues]) {
 							issuesCell.style.color = colorMap[issues];
+						}
+						
+						// Add last updated date in YYYY-MM-DD format
+						const lastUpdatedCell = row.createEl('td', {cls: 'text-left'});
+						if (p.lastUpdated) {
+							const lastUpdatedDate = new Date(p.lastUpdated);
+							const year = lastUpdatedDate.getFullYear();
+							const month = String(lastUpdatedDate.getMonth() + 1).padStart(2, '0');
+							const day = String(lastUpdatedDate.getDate()).padStart(2, '0');
+							const formattedDate = `${year}-${month}-${day}`;
+							lastUpdatedCell.textContent = formattedDate;
+							
+							// Color dates older than 1 year in orange
+							const oneYearAgo = Date.now() - (365 * 24 * 60 * 60 * 1000);
+							if (p.lastUpdated < oneYearAgo) {
+								lastUpdatedCell.style.color = '#FF0000'; // orange (same as Moderate issues)
+							}
+						} else {
+							lastUpdatedCell.textContent = 'Unknown';
 						}
 					});
 
@@ -114,12 +134,16 @@ export class InstalledPluginsModal extends Modal {
 			const jsonStr = lines.slice(1).join('\n').trim();
 			try {
 				const audit = JSON.parse(jsonStr);
-				const vulnerabilities = audit.vulnerabilities || {};
-				const {maxSeverity} = getMaxSeverity(vulnerabilities);
-				if (maxSeverity === 'none') {
-					pluginIssues.set(id, 'No issues');
+				if (audit.error) {
+					pluginIssues.set(id, 'Audit failed');
 				} else {
-					pluginIssues.set(id, maxSeverity.charAt(0).toUpperCase() + maxSeverity.slice(1));
+					const vulnerabilities = audit.vulnerabilities || {};
+					const {maxSeverity} = getMaxSeverity(vulnerabilities);
+					if (maxSeverity === 'none') {
+						pluginIssues.set(id, 'No issues');
+					} else {
+						pluginIssues.set(id, maxSeverity.charAt(0).toUpperCase() + maxSeverity.slice(1));
+					}
 				}
 			} catch (e) {
 				// If not JSON, check for error

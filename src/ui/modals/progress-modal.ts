@@ -45,7 +45,6 @@ export class ProgressModal extends Modal {
 		if (summary) {
 			this.summaryContainer.style.display = 'block';
 			this.summaryContainer.empty();
-			this.summaryContainer.createEl('h4', {text: 'Audit Summary'});
 			const table = createSummaryTable(this.summaryContainer, 'Plugin category', 'Plugin count', summary);
 		} else {
 			this.summaryContainer.style.display = 'none';
@@ -156,7 +155,6 @@ export class ProgressModal extends Modal {
 			// Add List plugins button
 			const listPluginsButton = buttonContainer.createEl('button', {text: 'List plugins', cls: 'modal-button'});
 			listPluginsButton.addEventListener('click', () => {
-				this.close();
 				new InstalledPluginsModal(this.app, this.plugin).open();
 			});
 

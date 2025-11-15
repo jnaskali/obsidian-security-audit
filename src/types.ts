@@ -1,7 +1,9 @@
 export interface SecurityAuditSettings {
+	githubAccessToken?: string;
 	debugLogging: boolean;
 	doNotDeleteCacheOnDisable: boolean;
 	showDebugOptionsInMenu: boolean;
+	debugOptions: boolean;
 	lastAuditTimestamp?: number;
 	lastAuditSummary?: {
 		critical: number;
