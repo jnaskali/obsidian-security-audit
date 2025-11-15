@@ -1,8 +1,82 @@
-/*
+/* Modal heading margin */
+.modal h3 {
+    margin-top: 0;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+/* Table column alignments */
+.modal table th:first-child,
+.modal table td:first-child {
+    text-align: right;
+}
 
-If your plugin does not need CSS, delete this file.
+.modal table th:nth-child(2),
+.modal table td:nth-child(2) {
+    text-align: left;
+}
 
-*/
+/* Long text modal pre styles */
+.long-text-pre {
+    white-space: pre-wrap;
+    overflow: visible;
+    user-select: text;
+}
+
+/* Modal button container */
+.modal-button-container {
+    text-align: right;
+}
+
+/* Modal button container centered */
+.modal-button-container-centered {
+    text-align: center;
+}
+
+/* Modal buttons */
+.modal-button {
+    margin-top: 10px;
+    margin-left: 10px;
+}
+
+/* Modal tables */
+.modal-table {
+    width: 100%;
+}
+
+/* Text alignments */
+.text-left {
+    text-align: left;
+}
+
+.text-right {
+    text-align: right;
+}
+
+/* Spaced row */
+.spaced-row {
+    margin-bottom: 1em;
+}
+
+/* Progress bar */
+.progress-bar {
+    width: 100%;
+}
+
+/* Status bar menu */
+.security-audit-status-menu {
+    position: absolute;
+    min-width: 180px;
+    background: var(--background-primary);
+    border: 1px solid var(--interactive-border);
+    color: var(--text-normal);
+    box-shadow: var(--shadow-elevation-2);
+    border-radius: 6px;
+    z-index: 9999;
+    font-size: 13px;
+}
+
+/* Status bar menu item */
+.security-audit-status-menu-item {
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
