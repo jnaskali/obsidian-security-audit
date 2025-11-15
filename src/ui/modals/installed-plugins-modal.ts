@@ -67,18 +67,18 @@ export class InstalledPluginsModal extends Modal {
 						const issues = pluginIssues.get(p.id) || 'Not audited';
 						const issuesCell = row.createEl('td', {text: issues, cls: 'text-left'});
 						// Color the issues text
-						const colorMap: Record<string, string> = {
-							'Critical': '#FF0000', // red
-							'High': '#8B0000', // dark red
-							'Moderate': '#FFA500', // orange
-							'Low': '#FFFF00', // yellow
-							'Info': '#FFFFE0', // light yellow
-							'No issues': '#008000', // green
-							'Audit failed': '#808080', // gray
-							'Not audited': '#000000' // black
+						const classMap: Record<string, string> = {
+							'Critical': 'security-audit-issue-critical',
+							'High': 'security-audit-issue-high',
+							'Moderate': 'security-audit-issue-moderate',
+							'Low': 'security-audit-issue-low',
+							'Info': 'security-audit-issue-info',
+							'No issues': 'security-audit-issue-no-issues',
+							'Audit failed': 'security-audit-issue-failed',
+							'Not audited': 'security-audit-issue-not-audited'
 						};
-						if (colorMap[issues]) {
-							issuesCell.style.color = colorMap[issues];
+						if (classMap[issues]) {
+							issuesCell.addClass(classMap[issues]);
 						}
 						
 						// Add last updated date in YYYY-MM-DD format
@@ -90,11 +90,11 @@ export class InstalledPluginsModal extends Modal {
 							const day = String(lastUpdatedDate.getDate()).padStart(2, '0');
 							const formattedDate = `${year}-${month}-${day}`;
 							lastUpdatedCell.textContent = formattedDate;
-							
+
 							// Color dates older than 1 year in orange
 							const oneYearAgo = Date.now() - (365 * 24 * 60 * 60 * 1000);
 							if (p.lastUpdated < oneYearAgo) {
-								lastUpdatedCell.style.color = '#FF0000'; // orange (same as Moderate issues)
+								lastUpdatedCell.addClass('security-audit-outdated-date');
 							}
 						} else {
 							lastUpdatedCell.textContent = 'Unknown';

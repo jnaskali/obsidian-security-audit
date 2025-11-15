@@ -12,7 +12,7 @@ export function setupStatusBar(plugin: SecurityAudit) {
 	statusBarItemEl.innerHTML = `
 		<svg role="img" aria-hidden="false" focusable="false" viewBox="0 0 24 24"
 			width="14" height="14"
-			style="display:inline-block;vertical-align:middle;color:#ffffff;fill:currentColor"
+			class="security-audit-status-icon"
 			xmlns="http://www.w3.org/2000/svg">
 			<path d="M12 2l7 3v5c0 5-3.5 9.7-7 11-3.5-1.3-7-6-7-11V5l7-3z"/>
 		</svg>
@@ -22,14 +22,10 @@ export function setupStatusBar(plugin: SecurityAudit) {
 
 	// Hover effect: subtle background and cursor change
 	plugin.registerDomEvent(statusBarItemEl, 'mouseenter', () => {
-		statusBarItemEl.style.background = 'rgba(255,255,255,0.08)';
-		statusBarItemEl.style.borderRadius = '4px';
-		statusBarItemEl.style.cursor = 'pointer';
+		statusBarItemEl.addClass('security-audit-status-item-hover');
 	});
 	plugin.registerDomEvent(statusBarItemEl, 'mouseleave', () => {
-		statusBarItemEl.style.background = '';
-		statusBarItemEl.style.borderRadius = '';
-		statusBarItemEl.style.cursor = '';
+		statusBarItemEl.removeClass('security-audit-status-item-hover');
 	});
 
 	// Click opens a small menu anchored to the status bar icon
@@ -60,6 +56,7 @@ export function openStatusMenu(plugin: SecurityAudit) {
 	const initialLeft = window.scrollX + rect.left;
 	menu.style.left = `${initialLeft}px`;
 	menu.style.top = `${initialTop}px`;
+	menu.addClass('security-audit-status-menu-positioned');
 
 	// Prevent clicks inside the menu from closing it
 	menu.addEventListener('click', (e) => e.stopPropagation());
@@ -184,21 +181,15 @@ export function openStatusMenu(plugin: SecurityAudit) {
 	}
 
 	// small entrance animation
-	menu.style.opacity = '0';
-	menu.style.transform = 'translateY(4px)';
 	requestAnimationFrame(() => {
-		menu.style.transition = 'opacity 120ms ease, transform 120ms ease';
-		menu.style.opacity = '1';
-		menu.style.transform = 'translateY(0)';
+		menu.addClass('security-audit-status-menu-visible');
 	});
 }
 
 export function closeStatusMenu(plugin: SecurityAudit) {
 	if (!plugin.statusMenuEl) return;
 	const menu = plugin.statusMenuEl;
-	menu.style.transition = 'opacity 120ms ease, transform 120ms ease';
-	menu.style.opacity = '0';
-	menu.style.transform = 'translateY(4px)';
+	menu.removeClass('security-audit-status-menu-visible');
 	setTimeout(() => {
 		if (menu.parentElement) menu.parentElement.removeChild(menu);
 	}, 150);

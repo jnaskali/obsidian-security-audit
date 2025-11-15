@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-security-audit",
-	"version": "0.0.1",
+	"version": "1.0.1",
 	"description": "Simple security audit system for Obsidian plugins.",
 	"main": "main.js",
 	"author": "Juhani Naskali",

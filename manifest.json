@@ -1,7 +1,7 @@
 {
   "id": "obsidian-security-audit",
   "name": "Security Audit",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "minAppVersion": "1.0.0",
   "description": "Simple security audit system for Obsidian plugins. Requires npm.",
   "isDesktopOnly": true,

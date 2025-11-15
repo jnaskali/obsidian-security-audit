@@ -80,3 +80,73 @@
     border-radius: 4px;
     cursor: pointer;
 }
+
+/* Status bar icon */
+.security-audit-status-icon {
+    display: inline-block;
+    vertical-align: middle;
+    color: #ffffff;
+    fill: currentColor;
+}
+
+/* Status bar item hover */
+.security-audit-status-item-hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Status bar menu positioning */
+.security-audit-status-menu-positioned {
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.security-audit-status-menu-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Empty table row spacing */
+.security-audit-empty-row {
+    height: 1em;
+}
+
+/* Issues text colors */
+.security-audit-issue-critical {
+    color: #FF0000;
+}
+
+.security-audit-issue-high {
+    color: #8B0000;
+}
+
+.security-audit-issue-moderate {
+    color: #FFA500;
+}
+
+.security-audit-issue-low {
+    color: #FFFF00;
+}
+
+.security-audit-issue-info {
+    color: #FFFFE0;
+}
+
+.security-audit-issue-no-issues {
+    color: #008000;
+}
+
+.security-audit-issue-failed {
+    color: #808080;
+}
+
+.security-audit-issue-not-audited {
+    color: #000000;
+}
+
+/* Outdated plugin date */
+.security-audit-outdated-date {
+    color: #FF0000;
+}

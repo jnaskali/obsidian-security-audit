@@ -25,7 +25,7 @@ function createSummaryTable(container: HTMLElement, header1: string, header2: st
 			row.classList.add('spaced-row');
 			// Add empty row after 'No issues'
 			const emptyRow = tbody.createEl('tr');
-			emptyRow.style.height = '1em';
+			emptyRow.addClass('security-audit-empty-row');
 		}
 	}
 	return table;
