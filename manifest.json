@@ -1,10 +1,10 @@
 {
   "id": "obsidian-security-audit",
   "name": "Security Audit",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.0.0",
   "description": "Simple security audit system for Obsidian plugins. Requires npm.",
-  "isDesktopOnly": false,
+  "isDesktopOnly": true,
   "author": "Juhani Naskali",
   "authorUrl": "https://github.com/jnaskali/",
   "fundingUrl": {
